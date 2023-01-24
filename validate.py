@@ -38,6 +38,10 @@ def validate(env_paras, env, model_policy):
         print("Scheduling Error！！！！！！")
     makespan = copy.deepcopy(env.makespan_batch.mean())
     makespan_batch = copy.deepcopy(env.makespan_batch)
+
+    tardiness = copy.deepcopy(env.tardiness_batch.mean())
+    tardiness_batch = copy.deepcopy(env.tardiness_batch)
+
     env.reset()
     print('validating time: ', time.time() - start, '\n')
-    return makespan, makespan_batch
+    return makespan, makespan_batch, tardiness, tardiness_batch
