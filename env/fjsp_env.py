@@ -196,8 +196,8 @@ class FJSPEnv(gym.Env):
         self.machines_batch[:, :, 0] = torch.ones(size=(self.batch_size, self.num_mas))
 
         self.makespan_batch = torch.max(self.feat_opes_batch[:, 4, :], dim=1)[0]  # shape: (batch_size)
-        self.tardiness_batch = torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch))[0]/self.num_jobs # todo: look at output
-        print(f'finish time {self.feat_opes_batch[:, 4, :]}, deadline {self.feat_opes_batch[:, 6, :]}, self.tardiness {self.tardiness_batch}')
+        self.tardiness_batch = torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch), dim=1)/self.num_jobs
+        # print(f'finish time {self.feat_opes_batch[:, 4, :]}, deadline {self.feat_opes_batch[:, 6, :]}, self.tardiness {self.tardiness_batch}')
         self.done_batch = self.mask_job_finish_batch.all(dim=1)  # shape: (batch_size)
 
         self.state = EnvState(batch_idxes=self.batch_idxes,
@@ -292,7 +292,7 @@ class FJSPEnv(gym.Env):
         self.done = self.done_batch.all()
 
         max = torch.max(self.feat_opes_batch[:, 4, :], dim=1)[0]
-        tardy = torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch))[0]/self.num_jobs
+        tardy = torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch), dim=1)/self.num_jobs
         # self.reward_batch = self.makespan_batch - max
         self.reward_batch = self.tardiness_batch - tardy
         self.makespan_batch = max
@@ -312,7 +312,7 @@ class FJSPEnv(gym.Env):
         # Update state of the environment
         self.state.update(self.batch_idxes, self.feat_opes_batch, self.feat_mas_batch, self.proc_times_batch,
             self.ope_ma_adj_batch, self.mask_job_procing_batch, self.mask_job_finish_batch, self.mask_ma_procing_batch,
-                          self.ope_step_batch, self.time)
+                          self.ope_step_batch, self.time, self.deadlines_batch)
         return self.state, self.reward_batch, self.done_batch
 
     def if_no_eligible(self):
@@ -398,7 +398,7 @@ class FJSPEnv(gym.Env):
 
         self.makespan_batch = torch.max(self.feat_opes_batch[:, 4, :], dim=1)[0]
         self.tardiness_batch = \
-        torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch))[
+        torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch), dim=1)[
             0] / self.num_jobs
         self.done_batch = self.mask_job_finish_batch.all(dim=1)
         return self.state

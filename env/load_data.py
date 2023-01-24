@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-# todo: DDT_high from config 
+# todo: DDT_high from config
 def load_fjs(lines, num_mas, num_opes, DDT_high=2.0):
     '''
     Load the local FJSP instance.
@@ -29,7 +29,7 @@ def load_fjs(lines, num_mas, num_opes, DDT_high=2.0):
             num_ope, max_job_proc_time = edge_detec(line, num_ope_bias, matrix_proc_time, matrix_pre_proc, matrix_cal_cumul)
             nums_ope.append(num_ope)
 
-            DDT = np.uniform(1, DDT_high)
+            DDT = np.random.uniform(1, DDT_high)
             deadline = DDT * max_job_proc_time
             deadlines.append(int(deadline))
 

@@ -35,7 +35,7 @@
     "save_timestep": 10,
     "update_timestep": 1,
     "viz": true,
-    "viz_name": "Paper_1005",
+    "viz_name": "Tardy_1005",
     "minibatch_size": 512,
     "parallel_iter": 20
   },
