@@ -32,13 +32,15 @@ class EnvState:
     ope_ma_adj_batch: torch.Tensor = None
     time_batch:  torch.Tensor = None
 
+    deadlines_batch: torch.Tensor = None
+
     mask_job_procing_batch: torch.Tensor = None
     mask_job_finish_batch: torch.Tensor = None
     mask_ma_procing_batch: torch.Tensor = None
     ope_step_batch: torch.Tensor = None
 
     def update(self, batch_idxes, feat_opes_batch, feat_mas_batch, proc_times_batch, ope_ma_adj_batch,
-               mask_job_procing_batch, mask_job_finish_batch, mask_ma_procing_batch, ope_step_batch, time):
+               mask_job_procing_batch, mask_job_finish_batch, mask_ma_procing_batch, ope_step_batch, time, deadlines_batch):
         self.batch_idxes = batch_idxes
         self.feat_opes_batch = feat_opes_batch
         self.feat_mas_batch = feat_mas_batch
@@ -50,6 +52,8 @@ class EnvState:
         self.mask_ma_procing_batch = mask_ma_procing_batch
         self.ope_step_batch = ope_step_batch
         self.time_batch = time
+
+        self.deadlines_batch = deadlines_batch
 
 def convert_feat_job_2_ope(feat_job_batch, opes_appertain_batch):
     '''
@@ -77,7 +81,7 @@ class FJSPEnv(gym.Env):
         self.paras = env_paras  # Parameters
         self.device = env_paras["device"]  # Computing device for PyTorch
         # load instance
-        num_data = 8  # The amount of data extracted from instance
+        num_data = 9  # The amount of data extracted from instance
         tensors = [[] for _ in range(num_data)]
         self.num_opes = 0
         lines = []
@@ -123,6 +127,8 @@ class FJSPEnv(gym.Env):
         self.end_ope_biases_batch = self.num_ope_biases_batch + self.nums_ope_batch - 1
         # shape: (batch_size), the number of operations for each instance
         self.nums_opes = torch.sum(self.nums_ope_batch, dim=1)
+        # shape: (batch_size, num_jobs), the deadline for each job
+        self.deadlines_batch = torch.stack(tensors[8], dim=0).long()
 
         # dynamic variable
         self.batch_idxes = torch.arange(self.batch_size)  # Uncompleted instances
@@ -139,6 +145,7 @@ class FJSPEnv(gym.Env):
                 Number of unscheduled operations in the job
                 Job completion time
                 Start time
+                Job Deadline
             ma:
                 Number of neighboring operations
                 Available time
@@ -156,6 +163,7 @@ class FJSPEnv(gym.Env):
         end_time_batch = (feat_opes_batch[:, 5, :] +
                           feat_opes_batch[:, 2, :]).gather(1, self.end_ope_biases_batch)
         feat_opes_batch[:, 4, :] = convert_feat_job_2_ope(end_time_batch, self.opes_appertain_batch)
+        feat_opes_batch[:, 6, :] = convert_feat_job_2_ope(self.deadlines_batch, self.opes_appertain_batch)
         feat_mas_batch[:, 0, :] = torch.count_nonzero(self.ope_ma_adj_batch, dim=1)
         self.feat_opes_batch = feat_opes_batch
         self.feat_mas_batch = feat_mas_batch
@@ -188,6 +196,8 @@ class FJSPEnv(gym.Env):
         self.machines_batch[:, :, 0] = torch.ones(size=(self.batch_size, self.num_mas))
 
         self.makespan_batch = torch.max(self.feat_opes_batch[:, 4, :], dim=1)[0]  # shape: (batch_size)
+        self.tardiness_batch = torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch))[0]/self.num_jobs # todo: look at output
+        print(f'finish time {self.feat_opes_batch[:, 4, :]}, deadline {self.feat_opes_batch[:, 6, :]}, self.tardiness {self.tardiness_batch}')
         self.done_batch = self.mask_job_finish_batch.all(dim=1)  # shape: (batch_size)
 
         self.state = EnvState(batch_idxes=self.batch_idxes,
@@ -202,7 +212,7 @@ class FJSPEnv(gym.Env):
                               end_ope_biases_batch=self.end_ope_biases_batch,
                               time_batch=self.time, nums_opes_batch=self.nums_opes)
 
-        # Save initial data for reset
+        # Save initial data for reset - only includes dynamic features
         self.old_proc_times_batch = copy.deepcopy(self.proc_times_batch)
         self.old_ope_ma_adj_batch = copy.deepcopy(self.ope_ma_adj_batch)
         self.old_cal_cumul_adj_batch = copy.deepcopy(self.cal_cumul_adj_batch)
@@ -282,8 +292,11 @@ class FJSPEnv(gym.Env):
         self.done = self.done_batch.all()
 
         max = torch.max(self.feat_opes_batch[:, 4, :], dim=1)[0]
-        self.reward_batch = self.makespan_batch - max
+        tardy = torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch))[0]/self.num_jobs
+        # self.reward_batch = self.makespan_batch - max
+        self.reward_batch = self.tardiness_batch - tardy
         self.makespan_batch = max
+        self.tardiness_batch = tardy
 
         # Check if there are still O-M pairs to be processed, otherwise the environment transits to the next time
         flag_trans_2_next_time = self.if_no_eligible()
@@ -384,6 +397,9 @@ class FJSPEnv(gym.Env):
         self.machines_batch[:, :, 0] = torch.ones(size=(self.batch_size, self.num_mas))
 
         self.makespan_batch = torch.max(self.feat_opes_batch[:, 4, :], dim=1)[0]
+        self.tardiness_batch = \
+        torch.sum((self.feat_opes_batch[:, 4, :] - self.feat_opes_batch[:, 6, :]).gather(1, self.end_ope_biases_batch))[
+            0] / self.num_jobs
         self.done_batch = self.mask_job_finish_batch.all(dim=1)
         return self.state
 
