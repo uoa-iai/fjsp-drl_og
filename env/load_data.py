@@ -1,7 +1,7 @@
 import torch
 import numpy as np
-
-def load_fjs(lines, num_mas, num_opes):
+# todo: DDT_high from config 
+def load_fjs(lines, num_mas, num_opes, DDT_high=2.0):
     '''
     Load the local FJSP instance.
     '''
@@ -12,6 +12,7 @@ def load_fjs(lines, num_mas, num_opes):
     nums_ope = []  # A list of the number of operations for each job
     opes_appertain = np.array([])
     num_ope_biases = []  # The id of the first operation of each job
+    deadlines = []  # keeps track of deadline for each loaded job
     # Parse data line by line
     for line in lines:
         # first line
@@ -25,9 +26,13 @@ def load_fjs(lines, num_mas, num_opes):
             num_ope_bias = int(sum(nums_ope))  # The id of the first operation of this job
             num_ope_biases.append(num_ope_bias)
             # Detect information of this job and return the number of operations
-            num_ope = edge_detec(line, num_ope_bias, matrix_proc_time, matrix_pre_proc, matrix_cal_cumul)
+            num_ope, max_job_proc_time = edge_detec(line, num_ope_bias, matrix_proc_time, matrix_pre_proc, matrix_cal_cumul)
             nums_ope.append(num_ope)
-            # nums_option = np.concatenate((nums_option, num_option))
+
+            DDT = np.uniform(1, DDT_high)
+            deadline = DDT * max_job_proc_time
+            deadlines.append(int(deadline))
+
             opes_appertain = np.concatenate((opes_appertain, np.ones(num_ope)*(flag-1)))
             flag += 1
     matrix_ope_ma_adj = torch.where(matrix_proc_time > 0, 1, 0)
@@ -35,7 +40,7 @@ def load_fjs(lines, num_mas, num_opes):
     opes_appertain = np.concatenate((opes_appertain, np.zeros(num_opes-opes_appertain.size)))
     return matrix_proc_time, matrix_ope_ma_adj, matrix_pre_proc, matrix_pre_proc.t(), \
            torch.tensor(opes_appertain).int(), torch.tensor(num_ope_biases).int(), \
-           torch.tensor(nums_ope).int(), matrix_cal_cumul
+           torch.tensor(nums_ope).int(), matrix_cal_cumul, torch.tensor(deadlines).int()
 
 def nums_detec(lines):
     '''
@@ -61,6 +66,8 @@ def edge_detec(line, num_ope_bias, matrix_proc_time, matrix_pre_proc, matrix_cal
     num_ope = 0  # Store the number of operations of this job
     num_option = np.array([])  # Store the number of processable machines for each operation of this job
     mac = 0
+    proc_time_per_ope = []
+    max_job_proc_time = 0
     for i in line_split:
         x = int(i)
         # The first number indicates the number of operations of this job
@@ -69,6 +76,9 @@ def edge_detec(line, num_ope_bias, matrix_proc_time, matrix_pre_proc, matrix_cal
             flag += 1
         # new operation detected
         elif flag == flag_new_ope:
+            if proc_time_per_ope:
+                max_job_proc_time += max(proc_time_per_ope)
+                proc_time_per_ope.clear()
             idx_ope += 1
             flag_new_ope += x * 2 + 1
             num_option = np.append(num_option, x)
@@ -89,4 +99,9 @@ def edge_detec(line, num_ope_bias, matrix_proc_time, matrix_pre_proc, matrix_cal
             matrix_proc_time[idx_ope+num_ope_bias][mac] = x
             flag += 1
             flag_time = 0
-    return num_ope
+            proc_time_per_ope.append(x)
+
+    max_job_proc_time += max(proc_time_per_ope)
+    proc_time_per_ope.clear()
+
+    return num_ope, max_job_proc_time
