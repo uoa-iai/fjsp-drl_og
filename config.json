@@ -3,7 +3,7 @@
     "num_jobs": 10,
     "num_mas": 5,
     "batch_size": 20,
-    "ope_feat_dim" : 6,
+    "ope_feat_dim" : 7,
     "ma_feat_dim" : 3,
     "show_mode": "print",
     "valid_batch_size": 100
@@ -11,7 +11,7 @@
   "model_paras": {
     "in_size_ma": 3,
     "out_size_ma": 8,
-    "in_size_ope": 6,
+    "in_size_ope": 7,
     "out_size_ope": 8,
     "hidden_size_ope": 128,
     "num_heads": [1, 1],
