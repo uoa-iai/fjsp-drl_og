@@ -73,8 +73,15 @@ def main():
     writer_ave = pd.ExcelWriter('{0}/training_ave_{1}.xlsx'.format(save_path, str_time))
     # Training curve storage path (value of each validating instance)
     writer_100 = pd.ExcelWriter('{0}/training_100_{1}.xlsx'.format(save_path, str_time))
+
+    writer_ave_tardy = pd.ExcelWriter('{0}/training_ave_tardy_{1}.xlsx'.format(save_path, str_time))
+    # Training curve storage path (value of each validating instance)
+    writer_100_tardy = pd.ExcelWriter('{0}/training_100_tardy_{1}.xlsx'.format(save_path, str_time))
+
     valid_results = []
     valid_results_100 = []
+    valid_results_tardy = []
+    valid_results_tardy_100 = []
     data_file = pd.DataFrame(np.arange(10, 1010, 10), columns=["iterations"])
     data_file.to_excel(writer_ave, sheet_name='Sheet1', index=False)
     writer_ave.save()
@@ -135,9 +142,11 @@ def main():
         if i % train_paras["save_timestep"] == 0:
             print('\nStart validating')
             # Record the average results and the results on each instance
-            vali_result, vali_result_100 = validate(env_valid_paras, env_valid, model.policy_old)
+            vali_result, vali_result_100, vali_result_tardy, vali_result_tardy_100 = validate(env_valid_paras, env_valid, model.policy_old)
             valid_results.append(vali_result.item())
             valid_results_100.append(vali_result_100)
+            valid_results_tardy.append(vali_result_tardy.item())
+            valid_results_tardy_100.append(vali_result_tardy_100)
 
             # Save the best model
             if vali_result < makespan_best:
@@ -153,6 +162,10 @@ def main():
                 viz.line(
                     X=np.array([i]), Y=np.array([vali_result.item()]),
                     win='window{}'.format(2), update='append', opts=dict(title='makespan of valid'))
+                viz.line(
+                    X=np.array([i]), Y=np.array([vali_result_tardy.item()]),
+                    win='window{}'.format(3), update='append', opts=dict(title='tardiness of valid'))
+
 
     # Save the data of training curve to files
     data = pd.DataFrame(np.array(valid_results).transpose(), columns=["res"])
@@ -164,6 +177,15 @@ def main():
     data.to_excel(writer_100, sheet_name='Sheet1', index=False, startcol=1)
     writer_100.save()
     writer_100.close()
+    data = pd.DataFrame(np.array(valid_results_tardy).transpose(), columns=["res"])
+    data.to_excel(writer_ave_tardy, sheet_name='Sheet1', index=False, startcol=1)
+    writer_ave_tardy.save()
+    writer_ave_tardy.close()
+    column = [i_col for i_col in range(len(valid_results_tardy_100))]
+    data = pd.DataFrame(np.array(torch.stack(valid_results_tardy_100, dim=0).to('cpu')), columns=column)
+    data.to_excel(writer_100_tardy, sheet_name='Sheet1', index=False, startcol=1)
+    writer_100_tardy.save()
+    writer_100_tardy.close()
 
     print("total_time: ", time.time() - start_time)
 
