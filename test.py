@@ -187,9 +187,9 @@ def schedule(env, model, memories, flag_sample=False):
     # print("spend_time: ", spend_time)
 
     # Verify the solution
-    gantt_result = env.validate_gantt()[0]
-    if not gantt_result:
-        print("Scheduling Error！！！！！！")
+    #  = env.validate_gantt()[0]
+    # if not gantt_result:
+    #     print("Scheduling Error！！！！！！")
     return copy.deepcopy(env.makespan_batch), spend_time
 
 

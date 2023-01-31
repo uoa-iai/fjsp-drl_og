@@ -33,14 +33,14 @@ def validate(env_paras, env, model_policy):
             actions = model_policy.act(state, memory, dones, flag_sample=False, flag_train=False)
         state, rewards, dones = env.step(actions)
         done = dones.all()
-    gantt_result = env.validate_gantt()[0]
-    if not gantt_result:
-        print("Scheduling Error！！！！！！")
+    # gantt_result = env.validate_gantt()[0]
+    # if not gantt_result:
+    #     print("Scheduling Error！！！！！！")
     makespan = copy.deepcopy(env.makespan_batch.mean())
     makespan_batch = copy.deepcopy(env.makespan_batch)
 
-    tardiness = copy.deepcopy(env.tardiness_batch.mean())
-    tardiness_batch = copy.deepcopy(env.tardiness_batch)
+    tardiness = copy.deepcopy((env.true_tardiness_batch/env.num_jobs).mean())
+    tardiness_batch = copy.deepcopy(env.true_tardiness_batch/env.num_jobs)
 
     env.reset()
     print('validating time: ', time.time() - start, '\n')

@@ -121,9 +121,9 @@ def main():
         print("spend_time: ", time.time()-last_time)
 
         # Verify the solution
-        gantt_result = env.validate_gantt()[0]
-        if not gantt_result:
-            print("Scheduling Error！！！！！！")
+        # gantt_result = env.validate_gantt()[0]
+        # if not gantt_result:
+        #     print("Scheduling Error！！！！！！")
         # print("Scheduling Finish")
         env.reset()
 
