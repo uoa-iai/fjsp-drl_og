@@ -238,8 +238,10 @@ class HGNNScheduler(nn.Module):
             h_opes_pooled = h_opes.mean(dim=-2)  # shape: [len(batch_idxes), out_size_ope]
 
         # Detect eligible O-M pairs (eligible actions) and generate tensors for actor calculation
-        ope_step_batch = torch.where(state.ope_step_batch > state.end_ope_biases_batch,
-                                     state.end_ope_biases_batch, state.ope_step_batch)
+        # ope_step_batch = torch.where(state.ope_step_batch > state.end_ope_biases_batch,
+        #                              state.end_ope_biases_batch, state.ope_step_batch)
+        ope_step_batch = state.ope_step_batch
+        # ope_step_batch = torch.where(ope_step_batch < 0, int(max(nums_opes))  - 1, ope_step_batch)  # todo check
         jobs_gather = ope_step_batch[..., :, None].expand(-1, -1, h_opes.size(-1))[batch_idxes]
         h_jobs = h_opes.gather(1, jobs_gather)
         # Matrix indicating whether processing is possible
