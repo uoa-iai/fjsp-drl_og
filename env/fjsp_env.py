@@ -40,7 +40,9 @@ class EnvState:
     ope_step_batch: torch.Tensor = None
 
     def update(self, batch_idxes, feat_opes_batch, feat_mas_batch, proc_times_batch, ope_ma_adj_batch,
-               mask_job_procing_batch, mask_job_finish_batch, mask_ma_procing_batch, ope_step_batch, time, deadlines_batch):
+               mask_job_procing_batch, mask_job_finish_batch, mask_ma_procing_batch, ope_step_batch, time, deadlines_batch,
+               cal_cumul_adj_batch, ope_pre_adj_batch, ope_sub_adj_batch, opes_appertain_batch, end_ope_biases_batch,
+               nums_ope_batch, num_ope_biases_batch):
         self.batch_idxes = batch_idxes
         self.feat_opes_batch = feat_opes_batch
         self.feat_mas_batch = feat_mas_batch
@@ -54,6 +56,13 @@ class EnvState:
         self.time_batch = time
 
         self.deadlines_batch = deadlines_batch
+        self.cal_cumul_adj_batch = cal_cumul_adj_batch
+        self.ope_pre_adj_batch = ope_pre_adj_batch
+        self.ope_sub_adj_batch = ope_sub_adj_batch
+        self.opes_appertain_batch = opes_appertain_batch
+        self.end_ope_biases_batch = end_ope_biases_batch
+        self.nums_ope_batch = nums_ope_batch
+        self.num_ope_biases_batch = num_ope_biases_batch
 
 def convert_feat_job_2_ope(feat_job_batch, opes_appertain_batch):
     '''
@@ -84,6 +93,7 @@ class FJSPEnv(gym.Env):
         num_data = 9  # The amount of data extracted from instance
         self.tensors = [[] for _ in range(num_data)]
         self.num_opes = 0
+        self.max_jobs = 0
         self.num_opes_system = torch.zeros(self.batch_size)
         self.num_jobs_system = torch.zeros(self.batch_size)
         lines = []
@@ -407,53 +417,75 @@ class FJSPEnv(gym.Env):
                 # print(f'feat opes {self.feat_opes_batch}')
 
                 # update job tensors
-                num_jobs = self.num_jobs - torch.count_nonzero(self.mask_job_finish_batch[i, :])
                 # print(f'num_jos {num_jobs}')
                 # print(f'self.ope_step_batch {self.ope_step_batch}')
-                self.ope_step_batch[i, job_idx:self.num_jobs-1] = cloned_ope_step_batch[i, job_idx+1:]
+                self.ope_step_batch[i, job_idx:self.max_jobs-1] = cloned_ope_step_batch[i, job_idx+1:]
                 self.ope_step_batch[i, job_idx:] -= (end_ope - start_ope + 1)
-                self.ope_step_batch[i, num_jobs:] = -1
+                self.ope_step_batch[i, int(self.num_jobs_system[i]):] = -1
                 # print(f'self.ope_step_batch {self.ope_step_batch}')
 
                 # print(f'self.end_ope_biases_batch {self.end_ope_biases_batch}')
-                self.end_ope_biases_batch[i, job_idx:self.num_jobs-1] = cloned_end_ope_biases_batch[i, job_idx+1:]
+                self.end_ope_biases_batch[i, job_idx:self.max_jobs-1] = cloned_end_ope_biases_batch[i, job_idx+1:]
                 self.end_ope_biases_batch[i, job_idx:] -= (end_ope - start_ope + 1)
-                self.end_ope_biases_batch[i, num_jobs:] = -1
+                self.end_ope_biases_batch[i, int(self.num_jobs_system[i]):] = -1
                 # print(f'self.end_ope_biases_batch {self.end_ope_biases_batch}')
 
                 # print(f'self.nums_ope_batch {self.nums_ope_batch}')
-                self.nums_ope_batch[i, job_idx:self.num_jobs-1] = cloned_nums_ope_batch[i, job_idx + 1:]
-                self.nums_ope_batch[i, self.num_jobs-1] = 0
+                self.nums_ope_batch[i, job_idx:self.max_jobs-1] = cloned_nums_ope_batch[i, job_idx + 1:]
+                self.nums_ope_batch[i, self.max_jobs-1] = 0
                 # print(f'self.nums_ope_batch {self.nums_ope_batch}')
 
                 # print(f'self.deadlines_batch {self.deadlines_batch}')
-                self.deadlines_batch[i, job_idx:self.num_jobs-1] = cloned_deadlines_batch[i, job_idx + 1:]
-                self.deadlines_batch[i, self.num_jobs-1] = 0
+                self.deadlines_batch[i, job_idx:self.max_jobs-1] = cloned_deadlines_batch[i, job_idx + 1:]
+                self.deadlines_batch[i, self.max_jobs-1] = 0
                 # print(f'self.deadlines_batch {self.deadlines_batch}')
 
                 # print(f'self.num_ope_biases_batch {self.num_ope_biases_batch}')
-                self.num_ope_biases_batch[i, job_idx:self.num_jobs-1] = cloned_num_ope_biases_batch[i, job_idx + 1:]
+                self.num_ope_biases_batch[i, job_idx:self.max_jobs-1] = cloned_num_ope_biases_batch[i, job_idx + 1:]
                 self.num_ope_biases_batch[i, job_idx:] -= (end_ope - start_ope + 1)
-                self.num_ope_biases_batch[i, num_jobs:] = -1
+                self.num_ope_biases_batch[i, int(self.num_jobs_system[i]):] = -1
                 # print(f'self.num_ope_biases_batch {self.num_ope_biases_batch}')
 
-                self.mask_job_procing_batch[i, job_idx:self.num_jobs-1] = cloned_mask_job_procing_batch[i, job_idx + 1:]
-                self.mask_job_procing_batch[i, self.num_jobs-1] = True
+                self.mask_job_procing_batch[i, job_idx:self.max_jobs-1] = cloned_mask_job_procing_batch[i, job_idx + 1:]
+                self.mask_job_procing_batch[i, self.max_jobs-1] = True
 
                 # print(f'self.mask_job_finish_batch {self.mask_job_finish_batch}')
-                self.mask_job_finish_batch[i, job_idx:self.num_jobs - 1] = cloned_mask_job_finish_batch[i, job_idx + 1:]
+                self.mask_job_finish_batch[i, job_idx:self.max_jobs - 1] = cloned_mask_job_finish_batch[i, job_idx + 1:]
                 # print(f'self.mask_job_finish_batch {self.mask_job_finish_batch}')
                 # print(f'num {self.num_jobs}')
-                self.mask_job_finish_batch[i, self.num_jobs - 1] = True
+                self.mask_job_finish_batch[i, self.max_jobs - 1] = True
                 # print(f'self.mask_job_finish_batch {self.mask_job_finish_batch}')
 
                 job_ids_adjusted = torch.where(self.machines_batch[i, :, 3] > job_idx, self.machines_batch[i, :, 3] - 1, self.machines_batch[i, :, 3])
                 self.machines_batch[i, :, 3] = job_ids_adjusted
                 self.machines_batch[i, mas_idx, 3] = -1
 
+        self.max_jobs = int(torch.max(self.num_jobs_system))
+        self.num_opes = int(torch.max(self.num_opes_system))
+        if len(self.ope_step_batch[0]) > self.max_jobs:  # resize to max number of jobs in system
+            self.ope_step_batch = self.ope_step_batch[:, :self.max_jobs]
+            self.end_ope_biases_batch = self.end_ope_biases_batch[:, :self.max_jobs]
+            self.nums_ope_batch = self.nums_ope_batch[:, :self.max_jobs]
+            self.deadlines_batch = self.deadlines_batch[:, :self.max_jobs]
+            self.mask_job_procing_batch = self.mask_job_procing_batch[:, :self.max_jobs]
+            self.mask_job_finish_batch = self.mask_job_finish_batch[:, :self.max_jobs]
+            self.num_ope_biases_batch = self.num_ope_biases_batch[:, :self.max_jobs]
+        if self.ope_ma_adj_batch.size(dim=1) > self.num_opes:  # resize to max number of ops in system
+            self.ope_ma_adj_batch = self.ope_ma_adj_batch[:, :self.num_opes, :]
+            self.proc_times_batch = self.proc_times_batch[:, :self.num_opes, :]
+            self.cal_cumul_adj_batch = self.cal_cumul_adj_batch[:, :self.num_opes, :self.num_opes]
+            self.ope_pre_adj_batch = self.ope_pre_adj_batch[:, :self.num_opes, :self.num_opes]
+            self.ope_sub_adj_batch = self.ope_sub_adj_batch[:, :self.num_opes, :self.num_opes]
+            self.opes_appertain_batch = self.opes_appertain_batch[:, :self.num_opes]
+            self.feat_opes_batch = self.feat_opes_batch[:, :, :self.num_opes]
+            self.schedules_batch = self.schedules_batch[:, :self.num_opes, :]
+
         self.end_ope_biases_batch = torch.where(self.end_ope_biases_batch < 0, self.num_opes - 1,
                                            self.end_ope_biases_batch)
+        self.end_ope_biases_batch = torch.where(self.end_ope_biases_batch >= self.num_opes, self.num_opes - 1,
+                                           self.end_ope_biases_batch)
         self.ope_step_batch = torch.where(self.ope_step_batch < 0, self.num_opes - 1, self.ope_step_batch)
+        self.ope_step_batch = torch.where(self.ope_step_batch >= self.num_opes, self.num_opes - 1, self.ope_step_batch)
 
         for i in self.batch_idxes:
             num_opes = int(self.num_opes_system[i])
@@ -479,7 +511,9 @@ class FJSPEnv(gym.Env):
         # Update state of the environment
         self.state.update(self.batch_idxes, self.feat_opes_batch, self.feat_mas_batch, self.proc_times_batch,
             self.ope_ma_adj_batch, self.mask_job_procing_batch, self.mask_job_finish_batch, self.mask_ma_procing_batch,
-                          self.ope_step_batch, self.time, self.deadlines_batch)
+                          self.ope_step_batch, self.time, self.deadlines_batch, self.cal_cumul_adj_batch, self.ope_pre_adj_batch,
+                          self.ope_sub_adj_batch, self.opes_appertain_batch, self.end_ope_biases_batch, self.nums_ope_batch,
+                          self.num_ope_biases_batch)
         return self.state, self.reward_batch, self.done_batch
 
     def if_no_eligible(self):
@@ -566,6 +600,9 @@ class FJSPEnv(gym.Env):
 
         self.num_opes_system = copy.deepcopy(self.old_num_opes_system)
         self.num_jobs_system = copy.deepcopy(self.old_num_jobs_system)
+
+        self.num_opes = int(max(self.num_opes_system))
+        self.max_jobs = int(max(self.num_jobs_system))
 
         self.batch_idxes = torch.arange(self.batch_size)
         self.time = torch.zeros(self.batch_size)
