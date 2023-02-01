@@ -8,6 +8,15 @@ from graph.hgnn import GATedge, MLPsim
 from mlp import MLPCritic, MLPActor
 
 
+def stack_tensors(tensors_list, pad_dim=1):
+    max_second_dim = max(tensor.shape[1] for tensor in tensors_list)
+    if pad_dim == 1:
+        padded_tensors = [torch.nn.functional.pad(tensor, (0, 0, 0, max_second_dim - tensor.shape[1])) for tensor in tensors_list]
+    elif pad_dim == 2:
+        padded_tensors = [torch.nn.functional.pad(tensor, (0, max_second_dim - tensor.shape[2], 0, max_second_dim - tensor.shape[1])) for tensor in tensors_list]
+    stacked_tensors = torch.stack(padded_tensors, dim=0)
+    return stacked_tensors
+
 class Memory:
     def __init__(self):
         self.states = []
@@ -210,6 +219,7 @@ class HGNNScheduler(nn.Module):
         # Normalize
         nums_opes = state.nums_opes_batch[batch_idxes]
         features = self.get_normalized(raw_opes, raw_mas, proc_time, batch_idxes, nums_opes, flag_sample, flag_train)
+
         norm_opes = (copy.deepcopy(features[0]))
         norm_mas = (copy.deepcopy(features[1]))
         norm_proc = (copy.deepcopy(features[2]))
@@ -377,14 +387,14 @@ class PPO:
         minibatch_size = train_paras["minibatch_size"]  # batch size for updating
 
         # Flatten the data in memory (in the dim of parallel instances and decision points)
-        old_ope_ma_adj = torch.stack(memory.ope_ma_adj, dim=0).transpose(0,1).flatten(0,1)
-        old_ope_pre_adj = torch.stack(memory.ope_pre_adj, dim=0).transpose(0, 1).flatten(0, 1)
-        old_ope_sub_adj = torch.stack(memory.ope_sub_adj, dim=0).transpose(0, 1).flatten(0, 1)
-        old_raw_opes = torch.stack(memory.raw_opes, dim=0).transpose(0, 1).flatten(0, 1)
+        old_ope_ma_adj = stack_tensors(memory.ope_ma_adj).transpose(0,1).flatten(0,1)
+        old_ope_pre_adj = stack_tensors(memory.ope_pre_adj, pad_dim=2).transpose(0, 1).flatten(0, 1)
+        old_ope_sub_adj = stack_tensors(memory.ope_sub_adj, pad_dim=2).transpose(0, 1).flatten(0, 1)
+        old_raw_opes = stack_tensors(memory.raw_opes).transpose(0, 1).flatten(0, 1)
         old_raw_mas = torch.stack(memory.raw_mas, dim=0).transpose(0, 1).flatten(0, 1)
-        old_proc_time = torch.stack(memory.proc_time, dim=0).transpose(0, 1).flatten(0, 1)
-        old_jobs_gather = torch.stack(memory.jobs_gather, dim=0).transpose(0, 1).flatten(0, 1)
-        old_eligible = torch.stack(memory.eligible, dim=0).transpose(0, 1).flatten(0, 1)
+        old_proc_time = stack_tensors(memory.proc_time).transpose(0, 1).flatten(0, 1)
+        old_jobs_gather = stack_tensors(memory.jobs_gather).transpose(0, 1).flatten(0, 1)
+        old_eligible = stack_tensors(memory.eligible).transpose(0, 1).flatten(0, 1)
         memory_rewards = torch.stack(memory.rewards, dim=0).transpose(0,1)
         memory_is_terminals = torch.stack(memory.is_terminals, dim=0).transpose(0,1)
         old_logprobs = torch.stack(memory.logprobs, dim=0).transpose(0,1).flatten(0,1)
