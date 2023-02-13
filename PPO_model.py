@@ -280,6 +280,7 @@ class HGNNScheduler(nn.Module):
                               dim=-1).transpose(1, 2)
         h_pooled = torch.cat((h_opes_pooled, h_mas_pooled), dim=-1)  # deprecated
         mask = eligible.transpose(1, 2).flatten(1)
+        # print(f'mask {mask}')
 
         # Get priority index and probability of actions with masking the ineligible actions
         scores = self.actor(h_actions).flatten(1)
@@ -307,7 +308,10 @@ class HGNNScheduler(nn.Module):
 
         # DRL-S, sampling actions following \pi
         if flag_sample:
-            dist = Categorical(action_probs)
+            try:
+                dist = Categorical(action_probs)
+            except:
+                print(f'state {state.batch_idxes}')
             action_indexes = dist.sample()
         # DRL-G, greedily picking actions with the maximum probability
         else:

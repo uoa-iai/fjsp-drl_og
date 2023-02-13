@@ -26,6 +26,7 @@ def setup_seed(seed):
 def main():
     # PyTorch initialization
     # gpu_tracker = MemTracker()  # Used to monitor memory (of gpu)
+    setup_seed(42)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if device.type == 'cuda':
         torch.cuda.set_device(device)
@@ -59,6 +60,7 @@ def main():
     maxlen = 1  # Save the best model
     best_models = deque()
     makespan_best = float('inf')
+    tardy_best = float('inf')
 
     # Use visdom to visualize the training process
     is_viz = train_paras["viz"]
@@ -98,8 +100,10 @@ def main():
         # Replace training instances every x iteration (x = 20 in paper)
         if (i - 1) % train_paras["parallel_iter"] == 0:
             # \mathcal{B} instances use consistent operations to speed up training
-            nums_ope = [random.randint(opes_per_job_min, opes_per_job_max) for _ in range(num_jobs)]
+            opes = random.randint(opes_per_job_min, opes_per_job_max)
+            nums_ope = [opes for _ in range(num_jobs)]
             case = CaseGenerator(num_jobs, num_mas, opes_per_job_min, opes_per_job_max, nums_ope=nums_ope)
+            env_paras["seed"] = env_paras["seed"] + 1
             env = gym.make('fjsp-v0', case=case, env_paras=env_paras)
             print('num_job: ', num_jobs, '\tnum_mas: ', num_mas, '\tnum_opes: ', sum(nums_ope))
 
@@ -149,8 +153,8 @@ def main():
             valid_results_tardy_100.append(vali_result_tardy_100)
 
             # Save the best model
-            if vali_result < makespan_best:
-                makespan_best = vali_result
+            if vali_result_tardy < tardy_best:
+                tardy_best = vali_result_tardy
                 if len(best_models) == maxlen:
                     delete_file = best_models.popleft()
                     os.remove(delete_file)

@@ -6,7 +6,14 @@
     "ope_feat_dim" : 7,
     "ma_feat_dim" : 3,
     "show_mode": "print",
-    "valid_batch_size": 100
+    "valid_batch_size": 100,
+    "num_jobs_added": 5,
+    "num_jobs_ss": 7,
+    "ma_util": 0.85,
+    "DDT_high": 2.0,
+    "seed": 42,
+    "init_jobs": 7,
+    "tot_jobs": 10
   },
   "model_paras": {
     "in_size_ma": 3,
@@ -34,10 +41,10 @@
     "max_iterations": 1000,
     "save_timestep": 10,
     "update_timestep": 1,
-    "viz": true,
-    "viz_name": "Tardy_1005",
+    "viz": false,
+    "viz_name": "Tardy_1005_jobs_resize_add_job_2",
     "minibatch_size": 512,
-    "parallel_iter": 20
+    "parallel_iter": 40
   },
   "test_paras": {
     "num_ins": 100,

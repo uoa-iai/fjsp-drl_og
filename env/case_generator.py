@@ -6,8 +6,8 @@ class CaseGenerator:
     '''
     FJSP instance generator
     '''
-    def __init__(self, job_init, num_mas, opes_per_job_min, opes_per_job_max, nums_ope=None, path='../data/',
-                 flag_same_opes=True, flag_doc=False):
+    def __init__(self, job_init, num_mas, opes_per_job_min, opes_per_job_max, ma_util=0.85, nums_ope=None,
+                 path='../data/', flag_same_opes=True, flag_doc=False):
         if nums_ope is None:
             nums_ope = []
         self.flag_doc = flag_doc  # Whether save the instance to a file
@@ -16,6 +16,7 @@ class CaseGenerator:
         self.path = path  # Instance save path (relative path)
         self.job_init = job_init
         self.num_mas = num_mas
+        self.ma_util = ma_util
 
         self.mas_per_ope_min = 1  # The minimum number of machines that can process an operation
         self.mas_per_ope_max = num_mas
@@ -94,3 +95,10 @@ class CaseGenerator:
                 print(lines_doc[i], file=doc)
             doc.close()
         return lines, self.num_jobs, self.num_jobs
+
+    def get_arrival_rate(self):
+        mean_proc_per_ope = (self.proctime_per_ope_min + self.proctime_per_ope_max) / 2
+        operations_per_job = (self.opes_per_job_min + self.opes_per_job_max) / 2
+        processing_rate = self.num_mas * (1 / mean_proc_per_ope)
+        arrival_rate = processing_rate * (self.ma_util / operations_per_job)
+        return arrival_rate
