@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 # todo: DDT_high from config
-def load_fjs(lines, num_mas, num_opes, max_jobs, DDT_high=2.0):
+def load_fjs(lines, num_mas, num_opes, max_jobs, rng, DDT_high=2.0):
     '''
     Load the local FJSP instance.
     '''
@@ -29,7 +29,7 @@ def load_fjs(lines, num_mas, num_opes, max_jobs, DDT_high=2.0):
             num_ope, max_job_proc_time = edge_detec(line, num_ope_bias, matrix_proc_time, matrix_pre_proc, matrix_cal_cumul)
             nums_ope.append(num_ope)
 
-            DDT = np.random.uniform(1, DDT_high)
+            DDT = rng.uniform(1.5, DDT_high)
             deadline = DDT * max_job_proc_time
             deadlines.append(int(deadline))
 
@@ -61,6 +61,8 @@ def load_fjs_new(lines,
                  proc_times,
                  ope_pre_adj,
                  cal_cumul_adj,
+                 arrival_time,
+                 rng,
                  DDT_high=2.0):
     '''
        Load the local FJSP instance.
@@ -99,8 +101,8 @@ def load_fjs_new(lines,
             nums_ope.append(num_ope)
             nums_ope_dyn.append(num_ope)
 
-            DDT = np.random.uniform(1, DDT_high)
-            deadline = DDT * max_job_proc_time
+            DDT = rng.uniform(1.5, DDT_high)
+            deadline = arrival_time + DDT * max_job_proc_time
             deadlines.append(int(deadline))
 
             opes_appertain = np.concatenate((opes_appertain, np.ones(num_ope) * (flag - 1)))
