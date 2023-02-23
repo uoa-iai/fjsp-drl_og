@@ -13,7 +13,7 @@ from visdom import Visdom
 
 import PPO_model
 from env.case_generator import CaseGenerator
-from validate import validate, get_validate_env
+from validate import validate, get_validate_env, EED_SPT, act_EDD_SPT
 
 
 def setup_seed(seed):
@@ -84,11 +84,13 @@ def main():
     valid_results_100 = []
     valid_results_tardy = []
     valid_results_tardy_100 = []
-    data_file = pd.DataFrame(np.arange(10, 1010, 10), columns=["iterations"])
+    st = train_paras["save_timestep"]
+    en = train_paras["max_iterations"] + train_paras["save_timestep"]
+    data_file = pd.DataFrame(np.arange(st, en, st), columns=["iterations"])
     data_file.to_excel(writer_ave, sheet_name='Sheet1', index=False)
     writer_ave.save()
     writer_ave.close()
-    data_file = pd.DataFrame(np.arange(10, 1010, 10), columns=["iterations"])
+    data_file = pd.DataFrame(np.arange(st, en, st), columns=["iterations"])
     data_file.to_excel(writer_100, sheet_name='Sheet1', index=False)
     writer_100.save()
     writer_100.close()
@@ -123,7 +125,20 @@ def main():
             memories.is_terminals.append(dones)
             # gpu_tracker.track()  # Used to monitor memory (of gpu)
         print("spend_time: ", time.time()-last_time)
+        tardiness = copy.deepcopy((env.true_tardiness_batch).mean())
+        tardiness_batch = copy.deepcopy(env.true_tardiness_batch)
+        if is_viz:
+            viz.line(
+                X=np.array([i]), Y=np.array([tardiness.item()]),
+                win='window{}'.format(4), update='append', name='tardiness', opts=dict(title='Tardiness'))
 
+        env.reset()
+
+        vali_result2, vali_result_1002, vali_result_tardy2, vali_result_tardy_1002 = EED_SPT(env_valid_paras, env)
+        if is_viz:
+            viz.line(
+                X=np.array([i]), Y=np.array([vali_result_tardy2.item()]),
+                win='window{}'.format(4), update='append', name='EED Tardiness', opts=dict(title='Tardiness'))
         # Verify the solution
         # gantt_result = env.validate_gantt()[0]
         # if not gantt_result:
@@ -138,15 +153,20 @@ def main():
             memories.clear_memory()
             if is_viz:
                 viz.line(X=np.array([i]), Y=np.array([reward]),
-                    win='window{}'.format(0), update='append', opts=dict(title='reward of envs'))
+                         win='window{}'.format(0), update='append', name='reward',
+                         opts=dict(title='reward of envs'))
                 viz.line(X=np.array([i]), Y=np.array([loss]),
                     win='window{}'.format(1), update='append', opts=dict(title='loss of envs'))  # deprecated
+
 
         # if iter mod x = 0 then validate the policy (x = 10 in paper)
         if i % train_paras["save_timestep"] == 0:
             print('\nStart validating')
             # Record the average results and the results on each instance
+            env_valid.reset()
             vali_result, vali_result_100, vali_result_tardy, vali_result_tardy_100 = validate(env_valid_paras, env_valid, model.policy_old)
+            env_valid.reset()
+            vali_result2, vali_result_1002, vali_result_tardy2, vali_result_tardy_1002 = EED_SPT(env_valid_paras, env_valid)
             valid_results.append(vali_result.item())
             valid_results_100.append(vali_result_100)
             valid_results_tardy.append(vali_result_tardy.item())
@@ -165,10 +185,16 @@ def main():
             if is_viz:
                 viz.line(
                     X=np.array([i]), Y=np.array([vali_result.item()]),
-                    win='window{}'.format(2), update='append', opts=dict(title='makespan of valid'))
+                    win='window{}'.format(2), update='append', name='valid', opts=dict(title='makespan of valid'))
                 viz.line(
                     X=np.array([i]), Y=np.array([vali_result_tardy.item()]),
-                    win='window{}'.format(3), update='append', opts=dict(title='tardiness of valid'))
+                    win='window{}'.format(3), update='append', name='valid', opts=dict(title='tardiness of valid'))
+                viz.line(
+                    X=np.array([i]), Y=np.array([vali_result2.item()]),
+                    win='window{}'.format(2), update='append', name='EED')
+                viz.line(
+                    X=np.array([i]), Y=np.array([vali_result_tardy2.item()]),
+                    win='window{}'.format(3), update='append', name='EED')
 
 
     # Save the data of training curve to files
@@ -176,7 +202,8 @@ def main():
     data.to_excel(writer_ave, sheet_name='Sheet1', index=False, startcol=1)
     writer_ave.save()
     writer_ave.close()
-    column = [i_col for i_col in range(100)]
+    cols = train_paras["max_iterations"] // train_paras["save_timestep"]
+    column = [i_col for i_col in range(cols)]
     data = pd.DataFrame(np.array(torch.stack(valid_results_100, dim=0).to('cpu')), columns=column)
     data.to_excel(writer_100, sheet_name='Sheet1', index=False, startcol=1)
     writer_100.save()
